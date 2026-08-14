@@ -1,0 +1,14 @@
+name: binder
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - jupyterlab
+  - r-base=4.4
+  - r-essentials
+  - r-renv
+  - libnetcdf
+  - netcdf4
+  - hdf5
+  - pkg-config

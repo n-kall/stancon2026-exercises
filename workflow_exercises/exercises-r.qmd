@@ -1,0 +1,358 @@
+---
+title: Exercises
+jupyter:
+  kernelspec:
+    name: ir
+    display_name: R
+    language: R
+---
+
+
+First load the environment and install the required packages:
+
+
+```{r}
+renv::restore(prompt = FALSE)
+```
+
+```{r}
+library(posterior)
+library(priorsense)
+library(bayesplot)
+```
+
+# Part 1: Posterior draws objects
+
+For this set of exercises we will use draws from the classic eight
+schools model. These draws are included in both `posterior` and `ArviZ`.
+
+The eight schools model is a meta-analysis model of standardized test
+results in different schools. The values `theta[1]` to `theta[8]` are
+the mean results for each school. `mu` is the population level mean,
+`tau` is the standard deviation of the population distribution.
+
+```{r}
+eight_schools_draws <- example_draws("eight_schools")
+```
+
+## Understanding draws objects
+
+Inspect the posterior object. How many chains, iterations and variables
+does it contain?
+
+You can print the draws object, or you can use the `nchains()`,
+`niterations()` and `nvariables()` functions.
+
+```{r}
+# Your code here
+```
+
+## Subsetting draws
+
+Extract only the first chain.
+
+You can use the `subset_draws()` function, specifying the `chain`
+argument.
+
+```{r}
+# Your code here
+```
+
+Extract only the first 10 iterations, from all the chains.
+
+You can use the `subset_draws()` function, specifying the `iteration`
+argument.
+
+```{r}
+# Your code here
+```
+
+## Thinning draws
+
+Thin the draws so that only half of the draws are included. Then try
+automatic thinning.
+
+You can use the function `thin_draws()`, optionally specifying the
+`thin` argument.
+
+```{r}
+# Your code here
+```
+
+## Summarising draws
+
+Extract the variable `mu` and summarise it via mean and sd.
+
+You can use the functions `subset_draws()`, specifying the `variable`
+argument and `summarise_draws()`, specifying the functions.
+
+```{r}
+# Your code here
+```
+
+## Creating new variables
+
+Create a new variable that is the difference between school 1
+(`theta[1]` and school 2 (`theta[2]`) means. Call it `diff_1_2`. Do the
+same with school 3 (`theta[3]`) and school 4 (`theta[4]`). Then
+summarise these new variables with median, 0.3 and 0.7 quantiles.
+
+You can use the functions `mutate_variables()`, `summarise_draws()` and
+`quantile2()`. You can specify variable names that include `[]` with
+`` ` `` e.g. `` `theta[1]` ``.
+
+```{r}
+# Your code here
+```
+
+## Marginal posteriors
+
+Plot the marginal posteriors for the school means.
+
+You can use the functions `mcmc_intervals()` or `mcmc_areas()`.
+
+```{r}
+# Your code here
+```
+
+## Pairs plot
+
+Plot the variables `mu` and `tau` in an pairs plot.
+
+You can use the functions `mcmc_pairs()`
+
+```{r}
+# Your code here
+```
+
+# Part 2: Convergence diagnostics and uncertainty
+
+## R-hat
+
+Calculate the R-hat for all the variables in the draws object
+(`eight_schools_draws`). Which variables have high R-hat (\> 1.01)?
+
+You can use the function `summarise_draws()` with `rhat`
+
+```{r}
+# Your code here
+```
+
+## Effective sample size (ESS)
+
+Calculate the bulk and tail ESS for all the variables in the model.
+
+You can use the function `summarise_draws()` with `ess_tail` and
+`ess_bulk`
+
+```{r}
+# Your code here
+```
+
+## Monte Carlo standard error
+
+Calculate the mean of each variable, and also the Monte Carlo standard
+error of the mean.
+
+You can use the functions `summarise_draws()` with `mean` and
+`mcse_mean`
+
+```{r}
+# Your code here
+```
+
+Then do the same for the 0.05 and 0.95 quantiles. Think about how the
+Monte Carlo standard error might influence how you report the quantiles.
+
+You can use the functions `summarise_draws()` with `quantile2` and
+`mcse_quantile`
+
+```{r}
+# Your code here
+```
+
+## Pareto diagnostics
+
+Calculate the minimum sample size for stable estimates for each variable
+in the model. Which has the highest minimum sample size?
+
+You can use the function `summarise_draws()` with `pareto_min_ss`.
+
+```{r}
+# Your code here
+```
+
+# Part 3: Model evaluation and critique
+
+We can generate prior predictions from the eight schools model, using
+the following function.
+
+```{r}
+eight_schools_prior <- function(ndraws, mu_prior_sd = 1, tau_prior_sd = 1, sigma_obs = c(15, 10, 16, 11, 9, 11, 10, 18)) {
+
+  J <- length(sigma_obs)
+
+  mu <- rnorm(ndraws, 0, mu_prior_sd)
+  tau <- abs(rnorm(ndraws, 0, tau_prior_sd))
+
+  theta <- sapply(1:J, \(j) rnorm(ndraws, mu, tau))
+  yrep <- sapply(1:J, \(j) rnorm(ndraws, theta[, j], sigma_obs[j]))
+
+  prior_draws <- as_draws(yrep)
+  variables(prior_draws) <- paste0("yrep[", 1:J, "]")
+
+  return(prior_draws)
+}
+```
+
+Generate 1000 prior predictive draws, and plot the distributions for
+each school. Try with different `mu_prior_sd` and `tau_prior_sd` values
+(e.g. 1, 10, 100).
+
+You can use the `ppd_intervals` function.
+
+```{r}
+prior_predictive_draws <- eight_schools_prior(
+  ndraws = 1000,
+  mu_prior_sd = 1,
+  tau_prior_sd = 1
+)
+
+# Your code here
+```
+
+## Posterior predictive checks
+
+We can create posterior predictive draws from our posterior draws and
+plot against our actual observations.
+
+```{r}
+sigma_obs <- c(15, 10, 16, 11, 9, 11, 10, 18)
+
+eight_schools_post_pred <- eight_schools_draws |>
+  mutate_variables(
+    `yrep[1]` = rnorm(length(`theta[1]`), `theta[1]`, sigma_obs[1]),
+    `yrep[2]` = rnorm(length(`theta[2]`), `theta[2]`, sigma_obs[2]),
+    `yrep[3]` = rnorm(length(`theta[3]`), `theta[3]`, sigma_obs[3]),
+    `yrep[4]` = rnorm(length(`theta[4]`), `theta[4]`, sigma_obs[4]),
+    `yrep[5]` = rnorm(length(`theta[5]`), `theta[5]`, sigma_obs[5]),
+    `yrep[6]` = rnorm(length(`theta[6]`), `theta[6]`, sigma_obs[6]),
+    `yrep[7]` = rnorm(length(`theta[7]`), `theta[7]`, sigma_obs[7]),
+    `yrep[8]` = rnorm(length(`theta[8]`), `theta[8]`, sigma_obs[8])
+  ) |>
+  subset_draws(variable = "yrep") |>
+  as_draws_matrix()
+
+# Or alternatively in a nicer way, using rvars
+
+eight_schools_post_pred <- eight_schools_draws |>
+  as_draws_rvars() |>
+  mutate_variables(
+    yrep = rvar_rng(
+      rnorm,
+      n = length(sigma_obs),
+      mean = theta,
+      sd = sigma_obs
+    )
+  ) |>
+  subset_draws(variable = "yrep") |>
+  as_draws_matrix()
+```
+
+Plot the posterior predictions on top of the actual observations. Then
+use the PIT-ECDF plot.
+
+You can use the `ppc_intervals()` and `ppc_pit_ecdf()` functions.
+
+```{r}
+y <- c(28,  8, -3,  7, -1,  1, 18, 12)
+# Your code here
+```
+
+## Sensitivity checks
+
+Check for prior and likelihood sensitivity in the eight schools model.
+First check by power-scaling all priors jointly, then select only the
+“mu” and only the “tau” prior separately.
+
+You can use `powerscale_sensitivity()` with the `prior_selection`
+argument.
+
+```{r}
+eight_schools_draws_ps <- example_powerscale_model("eight_schools")$draws
+# Your code here
+```
+
+Next plot sensitivity using density plots. Plot only the mu and tau
+variables.
+
+You can use `powerscale_plot_dens()`.
+
+```{r}
+# Your code here
+```
+
+# Part 4: Bringing it all together
+
+We have provided four sets of posterior draws from hierarchical models
+of observed migratory bird counts recorded between 2000 and 2020 at the
+[Hanko Bird Observatory
+(Halias)](https://halias.fi/tutkimus-ja-aineisto/).
+
+For species $j$,
+
+$y \sim \mathrm{Poisson}(\lambda_j)$
+
+or
+
+$y \sim \mathrm{NegativeBinomial}(\lambda_j, \phi).$
+
+The species-specific abundances are linked through a hierarchical prior,
+
+$\log(\lambda_j) \sim \mathrm{Normal}(\mu, \sigma)$
+
+where $\mu$ represents the average abundance across species and $\sigma$
+controls the amount of pooling between species.
+
+Your task is to explore the posterior draws and diagnostic outputs for
+the four fitted models.
+
+As you work through the diagnostics, try to identify which model
+corresponds to each of the following situations:
+
+- Convergence issues caused by poor chain mixing (for example,
+  insufficient warmup).
+- Inadequate fit to the data caused by the choice of observation model,
+  shown by posterior predictive checks.
+- Issues caused by priors in conflict with the likelihood.
+- No major issues, although there is still room for model improvement.
+
+Use posterior summaries, convergence diagnostics, posterior predictive
+checks, and sensitivity analyses to guide your investigation.
+
+You can also look at the Stan model (`birds_per_year.stan`) and consider
+how you might improve it.
+
+```{r}
+# Use the following as a starting point
+
+# Load the draws
+draws1 <- readRDS("data/draws1.rds")
+draws2 <- readRDS("data/draws2.rds")
+draws3 <- readRDS("data/draws3.rds")
+draws4 <- readRDS("data/draws4.rds")
+
+# Load the data fed to Stan
+stan_data <- readRDS("data/stan_data.rds")
+
+# Get the actual observations and the corresponding species
+y <- stan_data$count
+species <- stan_data$species # useful for grouped plots
+
+# Create yrep matrices for posterior predictive checks
+yrep1 <-  as_draws_matrix(subset_draws(draws1, "y_rep"))
+yrep2 <-  as_draws_matrix(subset_draws(draws2, "y_rep"))
+yrep3 <-  as_draws_matrix(subset_draws(draws3, "y_rep"))
+yrep4 <-  as_draws_matrix(subset_draws(draws4, "y_rep"))
+```
+
